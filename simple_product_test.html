@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Product Test</title>
+</head>
+<body>
+    <h2>Simple Product Test</h2>
+    <button id="loadBtn">Load Products</button>
+    <button id="addBtn">Add Test Product</button>
+    <pre id="result"></pre>
+
+    <script>
+        const resultDiv = document.getElementById('result');
+        
+        document.getElementById('loadBtn').onclick = async () => {
+            const response = await fetch('/mima/api/test_product.php');
+            const data = await response.json();
+            resultDiv.innerHTML = JSON.stringify(data, null, 2);
+        };
+        
+        document.getElementById('addBtn').onclick = async () => {
+            const response = await fetch('/mima/api/test_product.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: 'Test Product ' + Date.now(),
+                    category: 'Test',
+                    quantity: 10,
+                    selling_price: 1000,
+                    cost_price: 600,
+                    reorder_level: 5
+                })
+            });
+            const data = await response.json();
+            resultDiv.innerHTML = JSON.stringify(data, null, 2);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Product Management</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        .form-group { margin-bottom: 10px; }
+        input, select { padding: 5px; width: 200px; }
+        button { padding: 5px 10px; margin: 5px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Product Management</h2>
+        
+        <div id="message"></div>
+        
+        <h3>Add New Product</h3>
+        <div>
+            <input type="text" id="product_name" placeholder="Product Name"><br><br>
+            <input type="text" id="product_category" placeholder="Category"><br><br>
+            <input type="number" id="product_quantity" placeholder="Quantity" value="0"><br><br>
+            <input type="number" id="product_selling_price" placeholder="Selling Price"><br><br>
+            <input type="number" id="product_cost_price" placeholder="Cost Price"><br><br>
+            <input type="number" id="product_reorder_level" placeholder="Reorder Level" value="10"><br><br>
+            <button id="addProductBtn">Add Product</button>
+        </div>
+        
+        <h3>Products List</h3>
+        <button id="refreshBtn">Refresh List</button>
+        <table id="productsTable">
+            <thead>
+                <tr><th>ID</th><th>Name</th><th>Category</th><th>Qty</th><th>Selling</th><th>Cost</th><th>Reorder</th><th>Action</th></tr>
+            </thead>
+            <tbody id="productsTableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        // Get elements
+        const messageDiv = document.getElementById('message');
+        const productsTableBody = document.getElementById('productsTableBody');
+        
+        // Add product function
+        async function addProduct() {
+            const data = {
+                name: document.getElementById('product_name').value,
+                category: document.getElementById('product_category').value,
+                quantity: parseInt(document.getElementById('product_quantity').value) || 0,
+                selling_price: parseFloat(document.getElementById('product_selling_price').value) || 0,
+                cost_price: parseFloat(document.getElementById('product_cost_price').value) || 0,
+                reorder_level: parseInt(document.getElementById('product_reorder_level').value) || 10
+            };
+            
+            console.log('Sending data:', data);
+            
+            try {
+                const response = await fetch('/mima/api/test_product.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                console.log('Response:', result);
+                
+                if (result.success) {
+                    messageDiv.innerHTML = '<p class="success">' + result.message + '</p>';
+                    loadProducts();
+                    clearForm();
+                } else {
+                    messageDiv.innerHTML = '<p class="error">' + result.message + '</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                messageDiv.innerHTML = '<p class="error">Error: ' + error.message + '</p>';
+            }
+        }
+        
+        // Load products function
+        async function loadProducts() {
+            try {
+                const response = await fetch('/mima/api/test_product.php');
+                const result = await response.json();
+                console.log('Products:', result);
+                
+                if (result.success) {
+                    productsTableBody.innerHTML = '';
+                    result.products.forEach(product => {
+                        productsTableBody.innerHTML += `
+                            <tr>
+                                <td>${product.id}</td>
+                                <td>${product.name}</td>
+                                <td>${product.category || '-'}</td>
+                                <td>${product.quantity}</td>
+                                <td>&#8358;${product.selling_price}</td>
+                                <td>&#8358;${product.cost_price || 0}</td>
+                                <td>${product.reorder_threshold || product.reorder_level || '-'}</td>
+                                <td><button onclick="deleteProduct(${product.id})">Delete</button></td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading products:', error);
+            }
+        }
+        
+        // Delete product function
+        async function deleteProduct(id) {
+            if (confirm('Are you sure?')) {
+                const response = await fetch('/mima/api/test_product.php?id=' + id, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    loadProducts();
+                }
+            }
+        }
+        
+        // Clear form function
+        function clearForm() {
+            document.getElementById('product_name').value = '';
+            document.getElementById('product_category').value = '';
+            document.getElementById('product_quantity').value = '0';
+            document.getElementById('product_selling_price').value = '';
+            document.getElementById('product_cost_price').value = '';
+            document.getElementById('product_reorder_level').value = '10';
+        }
+        
+        // Set up event listeners
+        document.getElementById('addProductBtn').onclick = addProduct;
+        document.getElementById('refreshBtn').onclick = loadProducts;
+        
+        // Load products on page load
+        loadProducts();
+    </script>
+</body>
+</html>

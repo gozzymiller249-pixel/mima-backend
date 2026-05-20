@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Register</title>
+</head>
+<body>
+    <h2>Simple Registration Test</h2>
+    <button id="registerBtn">Click to Register Test User</button>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('registerBtn').onclick = async () => {
+            const data = {
+                phone: '08077777777',
+                business_name: 'My Test Business',
+                password: 'password123'
+            };
+            
+            document.getElementById('result').innerHTML = 'Sending request...';
+            
+            try {
+                const response = await fetch('/mima/api/test_register.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        };
+    </script>
+</body>
+</html>

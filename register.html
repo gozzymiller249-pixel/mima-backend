@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register - StockWise SSA</title>
+    <style>
+        body { font-family: Arial; margin: 50px; background: #f3f4f6; }
+        .container { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 10px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        button { width: 100%; padding: 12px; background: #22c55e; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .error { color: red; }
+        .success { color: green; }
+        h2 { text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Register - StockWise SSA</h2>
+        <form id="registerForm">
+            <input type="tel" id="phone" placeholder="Phone Number" required>
+            <input type="text" id="business_name" placeholder="Business Name" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Register</button>
+        </form>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const phone = document.getElementById('phone').value;
+            const business_name = document.getElementById('business_name').value;
+            const password = document.getElementById('password').value;
+            
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = 'Registering...';
+            
+            const response = await fetch('/mima/api/test_register.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ phone, business_name, password })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                messageDiv.innerHTML = '<p class="success">Registration successful!</p>';
+            } else {
+                messageDiv.innerHTML = '<p class="error">' + result.message + '</p>';
+            }
+        };
+    </script>
+</body>
+</html>
