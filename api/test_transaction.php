@@ -43,6 +43,8 @@ try {
         
         if (!$input || !isset($input->product_id) || !isset($input->type) || !isset($input->quantity)) {
             $response = ['success' => false, 'message' => 'Product ID, type, and quantity are required'];
+        } elseif (!in_array($input->type, ['in', 'out'], true) || !is_numeric($input->quantity) || (int)$input->quantity <= 0) {
+            $response = ['success' => false, 'message' => 'Type must be in or out, and quantity must be a positive whole number'];
         } else {
             // Get product current stock and price
             $stmt = $db->prepare("SELECT current_stock, selling_price, cost_price FROM products WHERE id = ? AND user_id = ?");

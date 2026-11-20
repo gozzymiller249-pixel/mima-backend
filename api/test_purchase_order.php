@@ -56,7 +56,7 @@ try {
             // Calculate total amount
             $total_amount = 0;
             foreach ($input->items as $item) {
-                $total_amount += $item->quantity * $item->unit_price;
+                $total_amount += $item->quantity * ($item->unit_price ?? $item->unit_cost ?? 0);
             }
             
             $items_json = json_encode($input->items);
@@ -103,49 +103,55 @@ try {
             $response = ['success' => false, 'message' => 'Purchase order ID required'];
         } else {
             $status = $input->status ?? null;
-            $delivered_at = ($status === 'delivered') ? date('Y-m-d H:i:s') : null;
-            
-            $stmt = $db->prepare("
-                UPDATE purchase_orders 
-                SET status = ?, delivered_at = COALESCE(?, delivered_at)
-                WHERE id = ? AND user_id = ?
-            ");
-            $result = $stmt->execute([$status, $delivered_at, $id, $user_id]);
-            
-            if ($result) {
-                // If status is delivered, add stock to inventory
-                if ($status === 'delivered') {
-                    // Get the order items
-                    $stmt = $db->prepare("SELECT items FROM purchase_orders WHERE id = ? AND user_id = ?");
-                    $stmt->execute([$id, $user_id]);
-                    $order = $stmt->fetch();
-                    
-                    if ($order) {
-                        $items = json_decode($order['items'], true);
-                        foreach ($items as $item) {
-                            // Update product stock
-                            $stmt = $db->prepare("
-                                UPDATE products 
-                                SET current_stock = current_stock + ? 
-                                WHERE id = ? AND user_id = ?
-                            ");
-                            $stmt->execute([$item->quantity, $item->product_id, $user_id]);
-                            
-                            // Record transaction
-                            $stmt = $db->prepare("
-                                INSERT INTO inventory_transactions (user_id, product_id, type, quantity, unit_price, vat_amount, sync_status) 
-                                VALUES (?, ?, 'in', ?, ?, ?, 'synced')
-                            ");
-                            $vat_amount = $item->unit_price * $item->quantity * 0.075;
-                            $stmt->execute([$user_id, $item->product_id, $item->quantity, $item->unit_price, $vat_amount]);
+            $allowed = ['draft', 'submitted', 'consolidated', 'in_transit', 'delivered', 'closed'];
+            if (!in_array($status, $allowed, true)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid status']);
+                exit();
+            }
+
+            $stmt = $db->prepare("SELECT status, items FROM purchase_orders WHERE id = ? AND user_id = ?");
+            $stmt->execute([$id, $user_id]);
+            $order = $stmt->fetch();
+            if (!$order) {
+                echo json_encode(['success' => false, 'message' => 'Purchase order not found']);
+                exit();
+            }
+
+            $db->beginTransaction();
+            try {
+                $stmt = $db->prepare("
+                    UPDATE purchase_orders
+                    SET status = ?, delivered_at = CASE WHEN ? = 'delivered' AND delivered_at IS NULL THEN NOW() ELSE delivered_at END
+                    WHERE id = ? AND user_id = ?
+                ");
+                $stmt->execute([$status, $status, $id, $user_id]);
+
+                // Add stock once, when the order first becomes delivered
+                if ($status === 'delivered' && $order['status'] !== 'delivered') {
+                    $items = json_decode($order['items']) ?: [];
+                    foreach ($items as $item) {
+                        $qty = (int)($item->quantity ?? 0);
+                        $price = (float)($item->unit_price ?? $item->unit_cost ?? 0);
+                        if (!isset($item->product_id) || $qty <= 0) {
+                            continue;
                         }
+                        $stmt = $db->prepare("UPDATE products SET current_stock = current_stock + ? WHERE id = ? AND user_id = ?");
+                        $stmt->execute([$qty, $item->product_id, $user_id]);
+
+                        $stmt = $db->prepare("
+                            INSERT INTO inventory_transactions (user_id, product_id, type, quantity, unit_price, vat_amount, sync_status)
+                            VALUES (?, ?, 'in', ?, ?, ?, 'synced')
+                        ");
+                        $stmt->execute([$user_id, $item->product_id, $qty, $price, $price * $qty * 0.075]);
                     }
                 }
-                
-                $response = ['success' => true, 'message' => 'Purchase order updated successfully'];
-            } else {
-                $response = ['success' => false, 'message' => 'Failed to update purchase order'];
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                throw $e;
             }
+
+            $response = ['success' => true, 'message' => 'Purchase order updated successfully'];
         }
     }
     elseif ($method === 'DELETE') {

@@ -54,6 +54,13 @@ try {
                     $response['failed']++;
                     $response['errors'][] = 'Failed to insert product: ' . $item->data->name;
                 }
+            } else {
+                $response['failed']++;
+                $response['errors'][] = 'Unsupported queued operation: ' . ($item->operation ?? '?') . ' on ' . ($item->table_name ?? '?');
+                if (isset($item->queue_id)) {
+                    $stmt2 = $db->prepare("UPDATE offline_queue SET sync_status = 'failed' WHERE id = ?");
+                    $stmt2->execute([$item->queue_id]);
+                }
             }
         }
         

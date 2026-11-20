@@ -63,6 +63,37 @@ try {
             }
         }
     }
+    elseif ($method === 'PUT') {
+        // Edit product
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        $input = json_decode(file_get_contents('php://input'));
+
+        if (!$id || !$input || !isset($input->name) || !isset($input->selling_price)) {
+            $response = ['success' => false, 'message' => 'Product ID, name and selling price are required'];
+        } else {
+            $check = $db->prepare("SELECT id FROM products WHERE id = ? AND user_id = ?");
+            $check->execute([$id, $user_id]);
+            if (!$check->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Product not found']);
+                exit();
+            }
+            $stmt = $db->prepare("
+                UPDATE products
+                SET name = ?, category = ?, current_stock = ?, selling_price = ?, cost_price = ?
+                WHERE id = ? AND user_id = ?
+            ");
+            $stmt->execute([
+                $input->name,
+                $input->category ?? '',
+                max(0, (int)($input->quantity ?? 0)),
+                $input->selling_price,
+                $input->cost_price ?? 0,
+                $id,
+                $user_id
+            ]);
+            $response = ['success' => true, 'message' => 'Product updated'];
+        }
+    }
     elseif ($method === 'DELETE') {
         // Delete product
         $id = isset($_GET['id']) ? $_GET['id'] : null;

@@ -47,6 +47,8 @@ CREATE TABLE inventory_transactions (
     quantity INT NOT NULL,
     unit_cost DECIMAL(12,2),
     selling_price DECIMAL(12,2),
+    unit_price DECIMAL(12,2),
+    vat_amount DECIMAL(12,2),
     transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sync_status ENUM('pending', 'synced') DEFAULT 'synced',
     offline_id VARCHAR(100),
@@ -63,7 +65,9 @@ CREATE TABLE purchase_orders (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
     po_number VARCHAR(50) UNIQUE NOT NULL,
+    supplier_id INT NULL,
     items JSON NOT NULL,
+    total_amount DECIMAL(12,2) DEFAULT 0,
     status ENUM('draft', 'submitted', 'consolidated', 'in_transit', 'delivered', 'closed') DEFAULT 'draft',
     supply_chain_ref VARCHAR(100),
     submitted_at TIMESTAMP NULL,
@@ -109,9 +113,11 @@ CREATE TABLE suppliers (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
     name VARCHAR(100) NOT NULL,
+    contact_person VARCHAR(100),
     phone VARCHAR(20),
     email VARCHAR(100),
     default_lead_time_days INT DEFAULT 3,
+    lead_time_days INT DEFAULT 3,
     location VARCHAR(200),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -148,3 +154,31 @@ INSERT INTO inventory_transactions (product_id, user_id, type, quantity, unit_co
 (4, 1, 'in', 50, 60, 100, 'synced'),
 (5, 1, 'in', 50, 12000, 20000, 'synced'),
 (6, 1, 'in', 100, 1200, 2000, 'synced');
+
+-- Offline queue (used by test_sync.php and test_sync_process.php)
+CREATE TABLE IF NOT EXISTS offline_queue (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    operation VARCHAR(50) NOT NULL,
+    table_name VARCHAR(50) NOT NULL,
+    data LONGTEXT,
+    sync_status ENUM('pending', 'synced', 'failed') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    synced_at TIMESTAMP NULL,
+    INDEX idx_queue_status (sync_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Payment transactions (used by test_payment.php)
+CREATE TABLE IF NOT EXISTS payment_transactions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    reference VARCHAR(100) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'NGN',
+    email VARCHAR(100),
+    status VARCHAR(30) DEFAULT 'pending',
+    metadata LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_reference (reference)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
